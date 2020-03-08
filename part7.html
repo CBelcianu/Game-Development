@@ -1,0 +1,263 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8" />
+    <title>Making your first Phaser 3 Game - Part 7</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+    var config = {
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { y: 300 },
+                debug: false
+            }
+        },
+        scene: {
+            preload: preload,
+            create: create,
+            update: update
+        }
+    };
+
+    var jiggle = true;
+    var midExplosion = false;
+    var player;
+    var platforms;
+    var cursors;
+
+    var game = new Phaser.Game(config);
+    var gameOver = false;
+
+    var score = 0;
+    var scoreText;
+    var force = 500;
+
+    function preload ()
+    {
+        this.load.image('sky', 'assets/sky.png');
+        this.load.image('ground', 'assets/iceplatform.png');
+        this.load.image('bomb', 'assets/Rock2.png');
+        this.load.image('surprise', 'assets/tnt.png');
+        this.load.spritesheet('dude', 'assets/player1.png', { frameWidth: 32, frameHeight: 32 });
+    }
+
+    function create ()
+    {
+        this.add.image(400, 300, 'sky');
+
+        spikes = this.physics.add.staticGroup();
+
+        spikes.create(400, 568, 'ground').setScale(2).refreshBody();
+
+        
+        platforms = this.physics.add.staticGroup();
+        platforms.create(400, 350, 'ground').setScale(1.5).refreshBody();
+
+        player = this.physics.add.sprite(200, 290, 'dude');
+
+        player.setBounce(0.2);
+        player.setCollideWorldBounds(true);
+        player.body.drag = new Phaser.Geom.Point(400*player.body.mass,100*player.body.mass);
+
+        this.anims.create({
+            key: 'left',
+            frames: this.anims.generateFrameNumbers('dude', { start: 3, end: 8 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: 'turn',
+            //frames: [ { key: 'dude', frame: 4 } ],
+            frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 2 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: 'right',
+            frames: this.anims.generateFrameNumbers('dude', { start: 9, end: 14 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: 'death',
+            frames: this.anims.generateFrameNumbers('dude', { start: 15, end: 21 }),
+            frameRate: 10
+        });
+
+        cursors = this.input.keyboard.createCursorKeys();
+
+        this.physics.add.collider(player, platforms);
+        this.physics.add.collider(player, spikes, hitSpikes, null, this);
+
+        
+        scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '32px', fill: '#000' });
+
+
+        bombs = this.physics.add.group();
+
+        surprises = this.physics.add.group();
+
+        this.physics.add.collider(surprises, platforms, doExplosion, null, this);
+        this.physics.add.collider(surprises, player);
+        this.physics.add.collider(surprises, spikes, deleteBomb, null, this);
+
+        this.physics.add.collider(surprises, bombs);
+
+        this.physics.add.collider(bombs, platforms);
+
+        this.physics.add.collider(bombs, bombs);
+
+        this.physics.add.collider(player, bombs, hitSpikes, null, this);
+
+        this.physics.add.collider(bombs, spikes, deleteBomb, null, this);
+
+        setTimeout(increaseScore, 1000);
+        setTimeout(createBomb, 3000);
+        setTimeout(createSurprise, 10000);
+    }
+
+    function update ()
+    {
+        if (gameOver) {
+            return;
+        }
+
+        if (cursors.left.isDown)
+        {
+            if(!midExplosion) {
+                player.setVelocityX(-160);
+            }
+
+            player.anims.play('left', true);
+            jiggle = true;
+        }
+        else if (cursors.right.isDown)
+        {
+            if(!midExplosion) {
+                player.setVelocityX(160);
+            }
+
+            player.anims.play('right', true);
+            jiggle = true;
+        }
+        else
+        {
+            if(jiggle) {
+            player.anims.play('turn');
+            jiggle = false;
+            }
+        }
+
+        if (cursors.up.isDown && player.body.touching.down)
+        {
+            if(!midExplosion) {
+                player.setVelocityY(-330);
+            }
+        }
+    }
+
+    function hitSpikes(player, spikes) {
+        this.physics.pause();
+
+        player.setTint(0xff0000);
+
+        player.anims.play('death');
+
+        gameOver = true;
+
+    }
+
+    function createBomb() {
+
+        if(gameOver)
+            return;
+    
+        for( let i=0; i<2; i++){
+            var x = (player.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
+
+            var bomb = bombs.create(x, 16, 'bomb');
+            bomb.setBounce(1);
+            bomb.setCollideWorldBounds(true);
+            bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
+            
+            bomb.allowGravity = false;
+        }
+
+        let rand=Phaser.Math.Between(1000,5000);
+        setTimeout(createBomb, rand);
+    }
+
+    function createSurprise() {
+
+        if(gameOver)
+            return;
+    
+
+        var x = (player.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
+
+        var surprise = surprises.create(x, 16, 'surprise');
+        surprise.setBounce(0.2);
+        surprise.setCollideWorldBounds(true);
+        surprise.setVelocity(Phaser.Math.Between(-200, 200), 20);
+        surprise.allowGravity = true;
+
+        setTimeout(createSurprise, 10000);
+    }
+
+    function deleteBomb(bomb,spikes) {
+        bomb.disableBody(true,true);
+    }
+
+    function increaseScore() {
+        if(gameOver)
+            return;
+        score += 1;
+        scoreText.setText('Score: ' + score);
+        setTimeout(increaseScore,1000);
+    }
+
+    function doExplosion(surprise, entity) {
+        midExplosion = true;
+        var surprisePoint = new Phaser.Geom.Point(surprise.x, surprise.y);
+
+        for(var i=0; i<bombs.children.size; i++) {
+            var bomb = bombs.children.entries[i];
+            var bombPoint = new Phaser.Geom.Point(bomb.x, bomb.y);
+            var angle = Phaser.Math.Angle.BetweenPoints(surprisePoint, bombPoint);
+            bomb.setVelocityX(Math.cos(angle)*(force/1.5)*bomb.body.mass);
+            bomb.setVelocityY(Math.sin(angle)*(force/1.5)*bomb.body.mass);
+        }
+
+        var playerPoint = new Phaser.Geom.Point(player.x, player.y);
+        var angle = Phaser.Math.Angle.BetweenPoints(surprisePoint, playerPoint);
+        
+        player.setVelocityX(Math.cos(angle)*force*player.body.mass);
+        player.setVelocityY(Math.sin(angle)*force*player.body.mass);
+        surprise.disableBody(true,true);
+        setTimeout(() => { midExplosion = false; }, 500);
+        //var t = game.time.create(true)
+        //t.repeat(20,10,shake,this);
+        //t.start();
+        //t.onComplete.addOnce(resetCam,this);
+    }
+
+</script>
+
+</body>
+</html>
