@@ -41,6 +41,9 @@ class MainScene extends Phaser.Scene {
         bt1.on("pointerdown",()=>{
             this.scene.start("singleGame",)
         });
+        bt2.on("pointerdown",()=>{
+            this.scene.start("multiGame",)
+        });
     }
 
     preload (){
@@ -51,10 +54,13 @@ class MainScene extends Phaser.Scene {
 }
 
     var jiggle = true;
+    var jiggle1 = true;
     var midExplosion = false;
     var player;
+    var player1;
     var platforms;
     var cursors;
+    var cursors1;
 
     var gameOver = false;
 
@@ -80,6 +86,25 @@ class MainScene extends Phaser.Scene {
         player.setTint(0xff0000);
 
         player.anims.play('death');
+
+        gameOver = true;
+
+    }
+
+    function hitSpikes1(player, spikes) {
+        this.physics.pause();
+
+        var request=new XMLHttpRequest();
+        request.onreadystatechange=function(){
+            if(request.readyState==4 && request.status==200){
+                }
+        }
+        request.open('GET','final.php?score='+score,true);
+        request.send('');
+
+        player.setTint(0xff0000);
+
+        player.anims.play('death1');
 
         gameOver = true;
 
@@ -159,6 +184,37 @@ class MainScene extends Phaser.Scene {
         //t.onComplete.addOnce(resetCam,this);
     }
 
+    function doExplosion1(surprise, entity) {
+        midExplosion = true;
+        var surprisePoint = new Phaser.Geom.Point(surprise.x, surprise.y);
+
+        for(var i=0; i<bombs.children.size; i++) {
+            var bomb = bombs.children.entries[i];
+            var bombPoint = new Phaser.Geom.Point(bomb.x, bomb.y);
+            var angle = Phaser.Math.Angle.BetweenPoints(surprisePoint, bombPoint);
+            bomb.setVelocityX(Math.cos(angle)*(force/1.5)*bomb.body.mass);
+            bomb.setVelocityY(Math.sin(angle)*(force/1.5)*bomb.body.mass);
+        }
+
+        var playerPoint = new Phaser.Geom.Point(player.x, player.y);
+        var angle = Phaser.Math.Angle.BetweenPoints(surprisePoint, playerPoint);
+
+        var playerPoint1 = new Phaser.Geom.Point(player1.x, player1.y);
+        var angle1 = Phaser.Math.Angle.BetweenPoints(surprisePoint, playerPoint1);
+        
+        player.setVelocityX(Math.cos(angle)*force*player.body.mass);
+        player.setVelocityY(Math.sin(angle)*force*player.body.mass);
+
+        player1.setVelocityX(Math.cos(angle1)*force*player.body.mass);
+        player1.setVelocityY(Math.sin(angle1)*force*player.body.mass);
+        surprise.disableBody(true,true);
+        setTimeout(() => { midExplosion = false; }, 500);
+        //var t = game.time.create(true)
+        //t.repeat(20,10,shake,this);
+        //t.start();
+        //t.onComplete.addOnce(resetCam,this);
+    }
+
 
 class SinglePlayerScene extends Phaser.Scene {
 
@@ -170,6 +226,7 @@ class SinglePlayerScene extends Phaser.Scene {
     {
         this.load.image('sky', 'assets/sky.png');
         this.load.image('ground', 'assets/iceplatform.png');
+        this.load.image('ground1', 'assets/spikes.png');
         this.load.image('bomb', 'assets/Rock2.png');
         this.load.image('surprise', 'assets/tnt.png');
         this.load.spritesheet('dude', 'assets/player1.png', { frameWidth: 32, frameHeight: 32 });
@@ -181,7 +238,7 @@ class SinglePlayerScene extends Phaser.Scene {
 
         spikes = this.physics.add.staticGroup();
 
-        spikes.create(400, 568, 'ground').setScale(2).refreshBody();
+        spikes.create(400, 585, 'ground1').setScale(1).refreshBody();
 
         
         platforms = this.physics.add.staticGroup();
@@ -296,6 +353,228 @@ class SinglePlayerScene extends Phaser.Scene {
   
 }
 
+class MultiplayerPlayerScene extends Phaser.Scene {
+
+constructor() {
+    super("multiGame");
+}
+
+preload ()
+{
+    this.load.image('sky', 'assets/sky.png');
+    this.load.image('ground', 'assets/iceplatform.png');
+    this.load.image('ground1', 'assets/spikes.png');
+    this.load.image('bomb', 'assets/Rock2.png');
+    this.load.image('surprise', 'assets/tnt.png');
+    this.load.spritesheet('dude', 'assets/player1.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('dude1', 'assets/player2.png', { frameWidth: 32, frameHeight: 32 });
+}
+
+create ()
+{
+    this.add.image(400, 300, 'sky');
+
+    spikes = this.physics.add.staticGroup();
+
+    spikes.create(400, 585, 'ground1').setScale(1).refreshBody();
+
+    
+    platforms = this.physics.add.staticGroup();
+    platforms.create(400, 350, 'ground').setScale(1.5).refreshBody();
+
+    player = this.physics.add.sprite(600, 290, 'dude');
+
+    player.setBounce(0.2);
+    player.setCollideWorldBounds(true);
+    player.body.drag = new Phaser.Geom.Point(400*player.body.mass,100*player.body.mass);
+
+    this.anims.create({
+        key: 'left',
+        frames: this.anims.generateFrameNumbers('dude', { start: 3, end: 8 }),
+        frameRate: 10,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: 'turn',
+        //frames: [ { key: 'dude', frame: 4 } ],
+        frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 2 }),
+        frameRate: 10,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: 'right',
+        frames: this.anims.generateFrameNumbers('dude', { start: 9, end: 14 }),
+        frameRate: 10,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: 'death',
+        frames: this.anims.generateFrameNumbers('dude', { start: 15, end: 21 }),
+        frameRate: 10
+    });
+
+    player1 = this.physics.add.sprite(200, 290, 'dude1');
+
+    player1.setBounce(0.2);
+    player1.setCollideWorldBounds(true);
+    player1.body.drag = new Phaser.Geom.Point(400*player1.body.mass,100*player1.body.mass);
+
+    this.anims.create({
+        key: 'left1',
+        frames: this.anims.generateFrameNumbers('dude1', { start: 3, end: 8 }),
+        frameRate: 10,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: 'turn1',
+        //frames: [ { key: 'dude', frame: 4 } ],
+        frames: this.anims.generateFrameNumbers('dude1', { start: 0, end: 2 }),
+        frameRate: 10,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: 'right1',
+        frames: this.anims.generateFrameNumbers('dude1', { start: 9, end: 14 }),
+        frameRate: 10,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: 'death1',
+        frames: this.anims.generateFrameNumbers('dude1', { start: 15, end: 21 }),
+        frameRate: 10
+    });
+
+    cursors = this.input.keyboard.createCursorKeys();
+
+    cursors1 = this.input.keyboard.addKeys(
+        {
+            up:Phaser.Input.Keyboard.KeyCodes.W,
+            down:Phaser.Input.Keyboard.KeyCodes.S,
+            left:Phaser.Input.Keyboard.KeyCodes.A,
+            right:Phaser.Input.Keyboard.KeyCodes.D
+        }
+    );
+
+
+
+    this.physics.add.collider(player, platforms);
+    this.physics.add.collider(player, spikes, hitSpikes, null, this);
+
+    this.physics.add.collider(player1, platforms);
+    this.physics.add.collider(player1, spikes, hitSpikes1, null, this);
+
+    
+    scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '32px', fill: '#000' });
+
+
+    bombs = this.physics.add.group();
+
+    surprises = this.physics.add.group();
+
+    this.physics.add.collider(surprises, platforms, doExplosion1, null, this);
+    this.physics.add.collider(surprises, player);
+    this.physics.add.collider(surprises, player1);
+    this.physics.add.collider(surprises, spikes, deleteBomb, null, this);
+
+    this.physics.add.collider(surprises, bombs);
+
+    this.physics.add.collider(bombs, platforms);
+
+    this.physics.add.collider(bombs, bombs);
+
+    this.physics.add.collider(player, bombs, hitSpikes, null, this);
+
+    this.physics.add.collider(player1, bombs, hitSpikes1, null, this);
+
+    this.physics.add.collider(bombs, spikes, deleteBomb, null, this);
+
+    setTimeout(increaseScore, 1000);
+    setTimeout(createBomb, 3000);
+    setTimeout(createSurprise, 10000);
+}
+
+update ()
+{
+    if (gameOver) {
+        return;
+    }
+
+    if (cursors1.left.isDown)
+    {
+        if(!midExplosion) {
+            player1.setVelocityX(-160);
+        }
+
+        player1.anims.play('left1', true);
+        jiggle1 = true;
+    }
+    else if (cursors1.right.isDown)
+    {
+        if(!midExplosion) {
+            player1.setVelocityX(160);
+        }
+
+        player1.anims.play('right1', true);
+        jiggle1 = true;
+    }
+    else
+    {
+        if(jiggle1) {
+        player1.anims.play('turn1');
+        jiggle1 = false;
+        }
+    }
+
+    if (cursors1.up.isDown && player1.body.touching.down)
+    {
+        if(!midExplosion) {
+            player1.setVelocityY(-330);
+        }
+    }
+
+    if (cursors.left.isDown)
+    {
+        if(!midExplosion) {
+            player.setVelocityX(-160);
+        }
+
+        player.anims.play('left', true);
+        jiggle = true;
+    }
+    else if (cursors.right.isDown)
+    {
+        if(!midExplosion) {
+            player.setVelocityX(160);
+        }
+
+        player.anims.play('right', true);
+        jiggle = true;
+    }
+    else
+    {
+        if(jiggle) {
+        player.anims.play('turn');
+        jiggle = false;
+        }
+    }
+
+    if (cursors.up.isDown && player.body.touching.down)
+    {
+        if(!midExplosion) {
+            player.setVelocityY(-330);
+        }
+    }
+}
+
+
+}
+
 
 var config = {
         type: Phaser.AUTO,
@@ -314,7 +593,7 @@ var config = {
             update: update
         }
         */
-        scene: [MainScene,SinglePlayerScene]
+        scene: [MainScene,SinglePlayerScene,MultiplayerPlayerScene]
     };
 
  
