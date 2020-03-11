@@ -129,7 +129,6 @@ class MainScene extends Phaser.Scene {
     function increaseScore() {
         if(gameOver)
             return;
-        //console.log("Pula joc");
         score += 1;
         scoreText.setText('Score: ' + score);
         setTimeout(increaseScore,1000);
